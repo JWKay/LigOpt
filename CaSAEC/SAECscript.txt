@@ -1,0 +1,37 @@
+
+# Use of SAEC with R. Amend the following commands
+# to give your working directory and data
+
+# First, set your working directory by changing the next line
+
+setwd("~/Desktop/CaSAEC")
+
+# Now enter the program SAEC
+
+  source("SAEC.txt")
+
+
+# Now select one-by-one three files that contain:
+# the calibration data
+# the buffer data
+# the starting values for the AEC parameters. 
+
+
+  cacal1<- read.csv(file.choose(), header=T)
+
+  cabuf1<- read.csv(file.choose(), header=T)
+
+  capar1<- read.csv(file.choose(), header=T)
+
+# Run the AEC program
+
+  caout1<-saec(cacal1, cabuf1, capar1)
+
+# Print the outputs
+
+  caout1
+
+
+
+
+

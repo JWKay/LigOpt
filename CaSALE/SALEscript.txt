@@ -1,0 +1,38 @@
+# 	SALE using R. 
+
+#   First, set your working directory by changing the next line. This tells
+#   R where your input files are.
+
+
+	setwd("~/Desktop/CaSALE")
+
+	
+#   Now enter the program SALE
+
+ 	 source("SALE.txt")
+
+
+#    Now select, one by one, three files that contain:
+#    the calibration data
+#    the buffer data
+#    the starting values for the parameters. 
+
+ 	cacal1 <- read.csv(file.choose(), header=T)
+
+	 cabuf1 <- read.csv(file.choose(), header=T)
+
+  	capar1 <- read.csv(file.choose(), header=T)
+
+#  Run the SALE program
+
+  	caout1 <- sale(cacal1, cabuf1, capar1)
+
+#  Print the outputs. The outputs and a plot have been saved to
+#  your working directory that was set above.
+
+  	caout1
+
+
+
+
+

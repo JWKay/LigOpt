@@ -1,0 +1,166 @@
+#   R Program for SALE:
+# Automatic determination of Ligand purity and 
+# Equilibrium dissociation constant
+
+sale<- function(cacal, cabuf, capar) {
+
+eps<- 10^(-6)
+
+Ctot<- cacal[,1]
+Crelt<- cacal[,2]
+Cpot <- cacal[,3]
+
+Btot<- cabuf[,1]
+Brelt<- cabuf[,2]
+Bpot <- cabuf[,3]
+
+finpot <- capar[3,2]
+tottime <- capar[4,2]
+fbr <- capar[1,2]
+nlc <- capar [2,2]
+
+ncal <- nrow(cacal)
+nbuf <- nrow(cabuf)
+p0 <- 3 - log10(Ctot[1])
+
+dpot <- finpot - Cpot[1]
+dtim <- tottime - Crelt[1]
+pot1 <- Cpot[1]
+
+temp1 <- p0 + log10(Ctot) - 3
+temp2 <- Cpot -pot1 - Crelt*dpot/dtim
+
+calrelpot<-temp2
+pca<- - (log10(Ctot) -3)
+
+
+
+c1 <- sum(temp1*temp2)
+c2 <- sum(temp1*temp1)
+
+slope <- c1/c2
+inter <- slope*p0
+
+
+relpot <- Bpot -pot1 - Brelt*dpot/dtim
+
+px0<- 10^((relpot[1] -inter)/slope)
+mgtot<- Btot[1]
+pkapp<-   - log10( ( px0*(0.001*(nlc-mgtot)+px0))/(0.001*mgtot - px0))
+
+
+
+kapp <- 10^(-pkapp)
+
+temp3 <- kapp + 0.001*(nlc - Btot)
+temp4 <- sqrt(temp3*temp3 +0.004*kapp*Btot)
+temp5 <- (temp4- temp3)/2.0
+
+temp6 <- 10^(relpot /slope)
+cinit <- log10(mean(abs(( 0.01*temp6 - temp5)/(1 - temp6) ) ) )
+
+
+
+s <- slope
+param<- c(nlc, pkapp, cinit)
+
+
+cafit<-function(Btot, Ctot, param, slope)
+{
+	bvals<- 10^(-param[2]) +0.001*(param[1]-Btot)
+	pmg<- -log10(( -bvals + sqrt(bvals^2+0.004*10^(-param[2])*Btot))/2)
+ 	fitvals<-   slope*(  -log10(Ctot[1]*10^(-3)+10^param[3])+log10(10^(-pmg)+10^param[3]))
+	fitvals
+}
+
+
+carss<-function(Btot,Ctot,param, relpot, slope){
+	rss<- sum((relpot-cafit(Btot, Ctot, param, slope))^2)
+	rss
+}
+
+
+oldslope<- 0.0
+
+while(abs(slope-oldslope)>= eps)
+{
+caopt<-nlminb(start=param, objective=carss,  lower=c(0,0,-Inf),
+ upper=c(nlc,Inf, 0), Btot=Btot, Ctot=Ctot, relpot=relpot, slope=slope)
+
+C <- caopt$par[3]
+temp9<- -log10(0.001*Ctot[1] + 10^C) + log10(10^(-pca) + 10^C)
+oldslope<- slope
+slope<- sum(temp9*temp2)/sum(temp9^2)
+param<-caopt$par
+}
+
+caopt<-nlminb(start=param, objective=carss,  lower=c(0,0,-Inf),
+ upper=c(nlc,Inf, 0), Btot=Btot, Ctot=Ctot, relpot=relpot, slope=slope)
+
+C <- caopt$par[3]
+inter<-  -slope * log10(Ctot[1]^10^(-3) + 10^C)
+LigConc <- caopt$par[1]
+pKapp <- caopt$par[2]
+Kapp <- 10^(-pKapp)
+rss <- caopt$value
+r <- sqrt( 1- rss/((nbuf-1)*var(relpot)))
+
+
+
+
+temp1 <- Kapp + 0.001*(LigConc - Btot)
+temp2 <- sqrt( temp1*temp1 +0.004*Kapp*Btot)
+
+pX <- -log10((-temp1+ temp2)/2)
+X <- 10^(-pX)
+
+conc <- data.frame(pX=pX, X=X)
+
+
+C<- caopt$par[3]
+temp<- - log10( 10^(-3)*Ctot[1] + 10^C) + log10(10^(-pca) + 10^C)
+ 
+   slope<-  sum(temp*calrelpot)/sum(temp*temp) 
+ 
+inter<- - slope*log10(10^(-3)*Ctot[1] + 10^C)
+
+#C <- caopt$par[3]
+rss <- caopt$objective
+r <- sqrt( 1- rss/((nbuf-1)*var(relpot)))
+parout<- c(inter, slope, 10^C, pKapp, Kapp, LigConc, 100*LigConc/nlc, rss, r)
+
+labels <- c("E0", "s", "Sigma", "pKapp", "Kapp", "LigConc", "Purity", "RSS", "r")
+
+outputs <- data.frame( labels = labels, parout = parout)
+
+xlo = floor(min(c(pX, pca)))
+xhi = ceiling(max(c(pX, pca)))
+ylo = min(relpot)
+yhi = max(calrelpot)
+
+xval<- seq(xlo, xhi, 0.05)
+yval= inter + slope*log10(10^-xval + 10^C)
+
+
+plot(xval, yval, xlab="pX", ylab="Potential (mV)", xlim=c(xhi, xlo), ylim=c(ylo, yhi), type="l")
+points(pca, calrelpot, col= "blue", pch=16)
+points(pX, relpot, col= "brown1", pch=16)
+legend(xhi, yhi, c("calibrating", "buffer"), col=c("blue", "brown1"), text.col="green4", pch=c(16,16))
+
+
+pdf("OUTplot.pdf", width=5, height=5)
+plot(xval, yval, xlab="pX", ylab="Potential (mV)", xlim=c(xhi, xlo), ylim=c(ylo, yhi), type="l")
+points(pca, calrelpot, col= "blue", pch=16)
+points(pX, relpot, col= "brown1", pch=16)
+legend(xhi, yhi, c("calibrating", "buffer"), col=c("blue", "brown1"), text.col="green4", pch=c(16,16))
+dev.off()
+
+write.csv(conc, file="OUTbuf.csv", row.names=F)
+
+write.csv(outputs, file="OUTpar.csv", row.names=F)
+
+
+
+return(list(outputs, conc))
+}
+
